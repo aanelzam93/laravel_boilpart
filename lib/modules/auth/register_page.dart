@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_modular/flutter_modular.dart';
+import '../../core/constants/app_constants.dart';
 import '../../core/localization/app_localizations.dart';
 import '../../core/theme/app_colors.dart';
 import 'auth_controller.dart';
@@ -303,6 +304,40 @@ class _RegisterPageState extends State<RegisterPage> {
                                         color: Colors.grey[600],
                                       ),
                                       textAlign: TextAlign.center,
+                                    ),
+                                    const SizedBox(height: 24),
+
+                                    // Test API Warning
+                                    Container(
+                                      padding: const EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFFF3CD),
+                                        border: Border.all(
+                                          color: const Color(0xFFFFC107),
+                                          width: 1,
+                                        ),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.info_outline,
+                                            color: Color(0xFFFF8F00),
+                                            size: 20,
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Text(
+                                              'Test API: Registration will redirect to login page. Use test credentials to login.',
+                                              style: const TextStyle(
+                                                color: Color(0xFF856404),
+                                                fontSize: 12,
+                                                height: 1.4,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                     const SizedBox(height: 24),
 
@@ -655,11 +690,33 @@ class _RegisterPageState extends State<RegisterPage> {
                                             ? null
                                             : () {
                                                 if (_formKey.currentState!.validate()) {
-                                                  // Register with username (dummy)
-                                                  BlocProvider.of<AuthController>(context).login(
-                                                        _usernameController.text,
-                                                        _passwordController.text,
-                                                      );
+                                                  // Show info: This is a test API
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    SnackBar(
+                                                      content: const Text(
+                                                        'ℹ️ This is a test API. Real registration is not available.\nPlease use test credentials to login.',
+                                                      ),
+                                                      backgroundColor: const Color(0xFF4FACFE),
+                                                      duration: const Duration(seconds: 4),
+                                                      behavior: SnackBarBehavior.floating,
+                                                      shape: RoundedRectangleBorder(
+                                                        borderRadius: BorderRadius.circular(12),
+                                                      ),
+                                                      action: SnackBarAction(
+                                                        label: 'Go to Login',
+                                                        textColor: Colors.white,
+                                                        onPressed: () {
+                                                          Modular.to.pop();
+                                                        },
+                                                      ),
+                                                    ),
+                                                  );
+                                                  // Navigate to login after 2 seconds
+                                                  Future.delayed(const Duration(seconds: 2), () {
+                                                    if (mounted) {
+                                                      Modular.to.pop();
+                                                    }
+                                                  });
                                                 }
                                               },
                                         style: ElevatedButton.styleFrom(

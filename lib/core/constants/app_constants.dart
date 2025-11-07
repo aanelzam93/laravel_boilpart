@@ -1,9 +1,11 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 class AppConstants {
-  // API - DummyJSON
-  static const String baseUrl = 'https://dummyjson.com';
-  static const String apiVersion = '';
-  static const int connectTimeout = 30000;
-  static const int receiveTimeout = 30000;
+  // API Configuration from .env
+  static String get baseUrl => dotenv.get('API_BASE_URL', fallback: 'https://dummyjson.com');
+  static String get apiVersion => '';
+  static int get connectTimeout => int.tryParse(dotenv.get('API_TIMEOUT', fallback: '30000')) ?? 30000;
+  static int get receiveTimeout => int.tryParse(dotenv.get('API_TIMEOUT', fallback: '30000')) ?? 30000;
 
   // API Endpoints
   static const String authLogin = '/auth/login';
@@ -14,10 +16,6 @@ class AppConstants {
   static const String comments = '/comments';
   static const String todos = '/todos';
   static const String carts = '/carts';
-
-  // Alternative APIs
-  static const String reqResBaseUrl = 'https://reqres.in/api';
-  static const String jsonPlaceholderUrl = 'https://jsonplaceholder.typicode.com';
 
   // Storage Keys
   static const String keyToken = 'token';
@@ -32,11 +30,12 @@ class AppConstants {
   static const int defaultPageSize = 20;
   static const int maxPageSize = 100;
 
-  // App Info
-  static const String appName = 'Flutter Boilerplate';
+  // App Info from .env
+  static String get appName => dotenv.get('APP_NAME', fallback: 'Flutter Boilerplate');
   static const String appVersion = '1.0.0';
+  static String get appMode => dotenv.get('APP_MODE', fallback: 'development');
 
-  // Test Credentials - DummyJSON
-  static const String testUsername = 'emilys';
-  static const String testPassword = 'emilyspass';
+  // Test Credentials from .env
+  static String get testUsername => dotenv.get('TEST_USERNAME', fallback: 'emilys');
+  static String get testPassword => dotenv.get('TEST_PASSWORD', fallback: 'emilyspass');
 }

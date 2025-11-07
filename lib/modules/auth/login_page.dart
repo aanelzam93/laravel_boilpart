@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_modular/flutter_modular.dart';
+import '../../core/constants/app_constants.dart';
 import '../../core/localization/app_localizations.dart';
 import '../../core/theme/app_colors.dart';
 import 'auth_controller.dart';
@@ -303,7 +304,7 @@ class _LoginPageState extends State<LoginPage> {
                                       ),
                                       const SizedBox(height: 8),
                                       Text(
-                                        'Username: emilys\nPassword: emilyspass',
+                                        'Username: ${AppConstants.testUsername}\nPassword: ${AppConstants.testPassword}',
                                         style: TextStyle(
                                           color: Colors.white.withOpacity(0.95),
                                           fontSize: 12,
