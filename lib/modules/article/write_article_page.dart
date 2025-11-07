@@ -554,55 +554,65 @@ class _WriteArticlePageState extends State<WriteArticlePage> {
           ),
         ],
       ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            quill.QuillToolbar.simple(
-              configurations: quill.QuillSimpleToolbarConfigurations(
-                controller: _quillController,
-                sharedConfigurations: const quill.QuillSharedConfigurations(),
-                showAlignmentButtons: false,
-                showDirection: false,
-                showDividers: false,
-                showFontFamily: false,
-                showFontSize: false,
-                showSearchButton: false,
-                showSubscript: false,
-                showSuperscript: false,
-                showInlineCode: false,
-                showCodeBlock: false,
-                showIndent: false,
-                showHeaderStyle: true,
-                showListBullets: true,
-                showListNumbers: true,
-                showQuote: true,
-                showLink: true,
-                multiRowsDisplay: false,
-              ),
-            ),
-            Container(
-              height: 40,
-              width: 1,
-              color: Colors.grey[300],
-              margin: const EdgeInsets.symmetric(horizontal: 8),
-            ),
-            IconButton(
-              icon: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: quill.QuillToolbar.simple(
+                    configurations: quill.QuillSimpleToolbarConfigurations(
+                      controller: _quillController,
+                      sharedConfigurations: const quill.QuillSharedConfigurations(),
+                      showAlignmentButtons: false,
+                      showDirection: false,
+                      showDividers: true,
+                      showFontFamily: false,
+                      showFontSize: false,
+                      showSearchButton: false,
+                      showSubscript: false,
+                      showSuperscript: false,
+                      showInlineCode: false,
+                      showCodeBlock: false,
+                      showIndent: false,
+                      showHeaderStyle: true,
+                      showListBullets: true,
+                      showListNumbers: true,
+                      showQuote: true,
+                      showLink: true,
+                      showBoldButton: true,
+                      showItalicButton: true,
+                      showUnderLineButton: true,
+                      multiRowsDisplay: false,
+                    ),
                   ),
-                  borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.image, color: Colors.white, size: 18),
               ),
-              onPressed: _showImagePickerOptions,
-              tooltip: 'Add Images',
-            ),
-          ],
-        ),
+              Container(
+                height: 40,
+                width: 1,
+                color: Colors.grey[300],
+                margin: const EdgeInsets.symmetric(horizontal: 8),
+              ),
+              IconButton(
+                icon: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.image, color: Colors.white, size: 18),
+                ),
+                onPressed: _showImagePickerOptions,
+                tooltip: 'Add Images',
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
