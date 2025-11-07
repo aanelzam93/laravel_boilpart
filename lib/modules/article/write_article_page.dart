@@ -1040,7 +1040,6 @@ class _WriteArticlePageState extends State<WriteArticlePage> {
                   child: quill.QuillEditor.basic(
                     configurations: quill.QuillEditorConfigurations(
                       controller: _quillController,
-                      readOnly: false,
                       placeholder: 'Tell your story...\n\nUse the toolbar above to format your text, add links, lists, and more.',
                       padding: EdgeInsets.zero,
                       sharedConfigurations: const quill.QuillSharedConfigurations(),
