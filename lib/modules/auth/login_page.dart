@@ -273,8 +273,48 @@ class _LoginPageState extends State<LoginPage> {
                                   ),
                                   textAlign: TextAlign.center,
                                 ),
-                                const SizedBox(height: 32),
-                            
+                                const SizedBox(height: 24),
+
+                                // Test Credentials Info Card
+                                Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [Color(0xFF4FACFE), Color(0xFF00F2FE)],
+                                    ),
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.info_outline, color: Colors.white, size: 20),
+                                          const SizedBox(width: 8),
+                                          const Text(
+                                            'Test Credentials',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        'Username: emilys\nPassword: emilyspass',
+                                        style: TextStyle(
+                                          color: Colors.white.withOpacity(0.95),
+                                          fontSize: 12,
+                                          height: 1.5,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 24),
+
                                 // Username Field
                                 TextFormField(
                                   controller: _usernameController,

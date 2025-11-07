@@ -14,7 +14,8 @@ class ProfilePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final user = UserModel.dummy();
+    final authController = context.read<AuthController>();
+    final user = authController.getCurrentUser() ?? UserModel.dummy();
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -60,15 +61,21 @@ class ProfilePage extends StatelessWidget {
                                 ),
                               ],
                             ),
-                            child: CircleAvatar(
-                              radius: 50,
-                              backgroundColor: Colors.white,
-                              child: Icon(
-                                Icons.person,
-                                size: 50,
-                                color: AppColors.primary,
-                              ),
-                            ),
+                            child: user.image != null
+                                ? CircleAvatar(
+                                    radius: 50,
+                                    backgroundImage: NetworkImage(user.image!),
+                                    backgroundColor: Colors.white,
+                                  )
+                                : CircleAvatar(
+                                    radius: 50,
+                                    backgroundColor: Colors.white,
+                                    child: Icon(
+                                      Icons.person,
+                                      size: 50,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
                           ),
                           Positioned(
                             bottom: 0,
@@ -98,7 +105,7 @@ class ProfilePage extends StatelessWidget {
 
                       // Name
                       Text(
-                        user.name,
+                        user.fullName,
                         style: const TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
@@ -107,11 +114,22 @@ class ProfilePage extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
 
+                      // Username
+                      Text(
+                        '@${user.username}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.white.withOpacity(0.8),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+
                       // Email
                       Text(
                         user.email,
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: 13,
                           color: Colors.white.withOpacity(0.9),
                         ),
                       ),
@@ -302,7 +320,7 @@ class ProfilePage extends StatelessWidget {
                     context,
                     icon: Icons.badge_outlined,
                     title: 'User ID',
-                    value: user.id,
+                    value: user.id.toString(),
                     color: const Color(0xFFF093FB),
                   ),
                   const SizedBox(height: 12),
