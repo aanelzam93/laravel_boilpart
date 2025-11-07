@@ -123,9 +123,9 @@ class _WriteArticlePageState extends State<WriteArticlePage> {
         setState(() {
           _titleController.text = draftData['title'] ?? '';
 
-          // Load Quill content
+          // Load Quill content (content is already an object, no need to decode again)
           if (draftData['content'] != null) {
-            final doc = quill.Document.fromJson(jsonDecode(draftData['content']));
+            final doc = quill.Document.fromJson(draftData['content']);
             _quillController.document = doc;
           }
 
@@ -157,6 +157,8 @@ class _WriteArticlePageState extends State<WriteArticlePage> {
     } catch (e) {
       // Silently fail if there's an error loading draft
       debugPrint('Error loading draft: $e');
+      // Clear corrupted draft
+      prefs.remove(_draftKey);
     }
   }
 
@@ -339,8 +341,8 @@ class _WriteArticlePageState extends State<WriteArticlePage> {
 
   Future<void> _saveDraft() async {
     try {
-      // Get Quill document as JSON
-      final contentJson = jsonEncode(_quillController.document.toDelta().toJson());
+      // Get Quill document as JSON (keep as object, not string)
+      final contentJson = _quillController.document.toDelta().toJson();
 
       // Get image paths
       final imagePaths = _uploadedImages.map((img) => img.path).toList();
@@ -348,7 +350,7 @@ class _WriteArticlePageState extends State<WriteArticlePage> {
       // Create draft data object
       final draftData = {
         'title': _titleController.text,
-        'content': contentJson,
+        'content': contentJson, // Store as object, not string
         'tags': _tags,
         'imagePaths': imagePaths,
         'savedAt': DateTime.now().toIso8601String(),
@@ -554,65 +556,59 @@ class _WriteArticlePageState extends State<WriteArticlePage> {
           ),
         ],
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: quill.QuillToolbar.simple(
-                    configurations: quill.QuillSimpleToolbarConfigurations(
-                      controller: _quillController,
-                      sharedConfigurations: const quill.QuillSharedConfigurations(),
-                      showAlignmentButtons: false,
-                      showDirection: false,
-                      showDividers: true,
-                      showFontFamily: false,
-                      showFontSize: false,
-                      showSearchButton: false,
-                      showSubscript: false,
-                      showSuperscript: false,
-                      showInlineCode: false,
-                      showCodeBlock: false,
-                      showIndent: false,
-                      showHeaderStyle: true,
-                      showListBullets: true,
-                      showListNumbers: true,
-                      showQuote: true,
-                      showLink: true,
-                      showBoldButton: true,
-                      showItalicButton: true,
-                      showUnderLineButton: true,
-                      multiRowsDisplay: false,
-                    ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            quill.QuillToolbar.simple(
+              configurations: quill.QuillSimpleToolbarConfigurations(
+                controller: _quillController,
+                sharedConfigurations: const quill.QuillSharedConfigurations(),
+                showAlignmentButtons: false,
+                showDirection: false,
+                showDividers: true,
+                showFontFamily: false,
+                showFontSize: false,
+                showSearchButton: false,
+                showSubscript: false,
+                showSuperscript: false,
+                showInlineCode: false,
+                showCodeBlock: false,
+                showIndent: false,
+                showHeaderStyle: true,
+                showListBullets: true,
+                showListNumbers: true,
+                showQuote: true,
+                showLink: true,
+                showBoldButton: true,
+                showItalicButton: true,
+                showUnderLineButton: true,
+                multiRowsDisplay: false,
+              ),
+            ),
+            Container(
+              height: 40,
+              width: 1,
+              color: Colors.grey[300],
+              margin: const EdgeInsets.symmetric(horizontal: 8),
+            ),
+            IconButton(
+              icon: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
                   ),
+                  borderRadius: BorderRadius.circular(8),
                 ),
+                child: const Icon(Icons.image, color: Colors.white, size: 18),
               ),
-              Container(
-                height: 40,
-                width: 1,
-                color: Colors.grey[300],
-                margin: const EdgeInsets.symmetric(horizontal: 8),
-              ),
-              IconButton(
-                icon: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
-                    ),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.image, color: Colors.white, size: 18),
-                ),
-                onPressed: _showImagePickerOptions,
-                tooltip: 'Add Images',
-              ),
-            ],
-          ),
-        ],
+              onPressed: _showImagePickerOptions,
+              tooltip: 'Add Images',
+            ),
+          ],
+        ),
       ),
     );
   }
