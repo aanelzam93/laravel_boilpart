@@ -2,8 +2,69 @@ import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import '../auth/auth_controller.dart';
 
-class ProfilePage extends StatelessWidget {
+// Mock Article Model
+class UserArticle {
+  final int id;
+  final String title;
+  final String excerpt;
+  final List<String> tags;
+  final int views;
+  final int reactions;
+  final DateTime createdAt;
+
+  UserArticle({
+    required this.id,
+    required this.title,
+    required this.excerpt,
+    required this.tags,
+    required this.views,
+    required this.reactions,
+    required this.createdAt,
+  });
+}
+
+class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
+
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  // Mock data - nantinya akan diganti dengan data dari backend
+  final List<UserArticle> _userArticles = [
+    UserArticle(
+      id: 1,
+      title: 'Getting Started with Flutter Development',
+      excerpt: 'Learn the basics of Flutter and build beautiful cross-platform apps...',
+      tags: ['flutter', 'mobile', 'tutorial'],
+      views: 1250,
+      reactions: 89,
+      createdAt: DateTime.now().subtract(const Duration(days: 5)),
+    ),
+    UserArticle(
+      id: 2,
+      title: 'State Management Best Practices in Flutter',
+      excerpt: 'Exploring different state management solutions and when to use them...',
+      tags: ['flutter', 'architecture', 'bloc'],
+      views: 2340,
+      reactions: 156,
+      createdAt: DateTime.now().subtract(const Duration(days: 12)),
+    ),
+    UserArticle(
+      id: 3,
+      title: 'Building Responsive UI with Flutter',
+      excerpt: 'Master responsive design techniques to create adaptive layouts...',
+      tags: ['ui', 'design', 'responsive'],
+      views: 890,
+      reactions: 67,
+      createdAt: DateTime.now().subtract(const Duration(days: 18)),
+    ),
+  ];
+
+  int get _totalArticles => _userArticles.length;
+  int get _totalReactions => _userArticles.fold(0, (sum, article) => sum + article.reactions);
+  int get _totalViews => _userArticles.fold(0, (sum, article) => sum + article.views);
 
   @override
   Widget build(BuildContext context) {
@@ -324,7 +385,7 @@ class ProfilePage extends StatelessWidget {
                     Expanded(
                       child: _buildStatCard(
                         icon: Icons.article,
-                        value: '0',
+                        value: '$_totalArticles',
                         label: 'Articles',
                         gradient: const [Color(0xFF6366F1), Color(0xFF8B5CF6)],
                       ),
@@ -333,7 +394,7 @@ class ProfilePage extends StatelessWidget {
                     Expanded(
                       child: _buildStatCard(
                         icon: Icons.favorite,
-                        value: '0',
+                        value: _formatNumber(_totalReactions),
                         label: 'Reactions',
                         gradient: const [Color(0xFFEC4899), Color(0xFFF59E0B)],
                       ),
@@ -342,7 +403,7 @@ class ProfilePage extends StatelessWidget {
                     Expanded(
                       child: _buildStatCard(
                         icon: Icons.visibility,
-                        value: '0',
+                        value: _formatNumber(_totalViews),
                         label: 'Views',
                         gradient: const [Color(0xFF3B82F6), Color(0xFF06B6D4)],
                       ),
@@ -351,7 +412,7 @@ class ProfilePage extends StatelessWidget {
                 ),
                 const SizedBox(height: 32),
 
-                // Section Title
+                // Section Title with Create Button
                 Row(
                   children: [
                     Container(
@@ -372,72 +433,78 @@ class ProfilePage extends StatelessWidget {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
+                    const Spacer(),
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.purple.shade200.withOpacity(0.4),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () => Modular.to.pushNamed('/article/write'),
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.add, color: Colors.white, size: 20),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Create',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 20),
+              ],
+            ),
+          ),
+        ),
 
-                // Empty State for Articles
-                Center(
-                  child: Container(
-                    padding: const EdgeInsets.all(40),
-                    child: Column(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(24),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
-                            ),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.article_outlined,
-                            size: 48,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        const Text(
-                          'No articles yet',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Start writing your first article',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        ElevatedButton.icon(
-                          onPressed: () {
-                            Modular.to.pushNamed('/article/write');
-                          },
-                          icon: const Icon(Icons.edit),
-                          label: const Text('Write Article'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.purple.shade400,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 32,
-                              vertical: 14,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+        // Articles List
+        _userArticles.isEmpty
+            ? SliverToBoxAdapter(child: _buildEmptyState())
+            : SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      return _buildArticleCard(_userArticles[index]);
+                    },
+                    childCount: _userArticles.length,
                   ),
                 ),
-                const SizedBox(height: 32),
+              ),
 
-                // Account Actions
+        // Account Section
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 32),
                 const Text(
                   'Account',
                   style: TextStyle(
@@ -514,6 +581,263 @@ class ProfilePage extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.all(40),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                ),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.article_outlined,
+                size: 48,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'No articles yet',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Start writing your first article',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade600,
+              ),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () {
+                Modular.to.pushNamed('/article/write');
+              },
+              icon: const Icon(Icons.edit),
+              label: const Text('Write Article'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.purple.shade400,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 14,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildArticleCard(UserArticle article) {
+    final gradients = [
+      [const Color(0xFF6366F1), const Color(0xFF8B5CF6)],
+      [const Color(0xFF8B5CF6), const Color(0xFFEC4899)],
+      [const Color(0xFF3B82F6), const Color(0xFF06B6D4)],
+      [const Color(0xFFEC4899), const Color(0xFFF59E0B)],
+    ];
+    final gradient = gradients[article.id % gradients.length];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.shade200.withOpacity(0.5),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            // TODO: Navigate to edit article
+            Modular.to.pushNamed('/article/write', arguments: article.id);
+          },
+          borderRadius: BorderRadius.circular(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Gradient accent bar
+              Container(
+                height: 4,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(colors: gradient),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(16),
+                    topRight: Radius.circular(16),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Title
+                    Text(
+                      article.title,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                        height: 1.3,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Excerpt
+                    Text(
+                      article.excerpt,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[600],
+                        height: 1.5,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Tags
+                    if (article.tags.isNotEmpty) ...[
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: article.tags.take(3).map((tag) {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  gradient[0].withOpacity(0.1),
+                                  gradient[1].withOpacity(0.1),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: gradient[0].withOpacity(0.3),
+                                width: 1,
+                              ),
+                            ),
+                            child: Text(
+                              '#$tag',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: gradient[0],
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+
+                    // Stats Row
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.purple.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.favorite,
+                                size: 14,
+                                color: Colors.purple.shade400,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                _formatNumber(article.reactions),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.purple.shade700,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.visibility,
+                                size: 14,
+                                color: Colors.blue.shade400,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                _formatNumber(article.views),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.blue.shade700,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          _formatDate(article.createdAt),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -670,5 +994,29 @@ class ProfilePage extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _formatNumber(int number) {
+    if (number >= 1000000) {
+      return '${(number / 1000000).toStringAsFixed(1)}M';
+    } else if (number >= 1000) {
+      return '${(number / 1000).toStringAsFixed(1)}K';
+    }
+    return number.toString();
+  }
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date);
+
+    if (difference.inDays > 30) {
+      return '${(difference.inDays / 30).floor()}mo ago';
+    } else if (difference.inDays > 0) {
+      return '${difference.inDays}d ago';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours}h ago';
+    } else {
+      return 'Just now';
+    }
   }
 }
