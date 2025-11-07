@@ -18,7 +18,7 @@ class ProductService {
     String? order,
   }) async {
     try {
-      final queryParameters = {
+      final queryParameters = <String, dynamic>{
         'limit': limit,
         'skip': skip,
       };
