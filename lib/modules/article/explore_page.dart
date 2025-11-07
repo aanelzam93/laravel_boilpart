@@ -59,7 +59,7 @@ class _ExplorePageState extends State<ExplorePage> {
                       children: [
                         if (currentState.selectedTag != null) ...[
                           GestureDetector(
-                            onTap: () => Modular.get<BlogController>().clearFilter(),
+                            onTap: () => Modular.get<BlogController>().filterByTag(null),
                             child: Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
@@ -469,10 +469,7 @@ class _ExplorePageState extends State<ExplorePage> {
               height: 4,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [
-                    Color(0xFF6366F1 + (post.id * 123) % 0x1000000),
-                    Color(0xFF8B5CF6 + (post.id * 456) % 0x1000000),
-                  ].map((c) => Color(0xFF000000 | (c & 0xFFFFFF))).toList(),
+                  colors: _getAccentColors(post.id),
                 ),
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(16),
@@ -594,6 +591,18 @@ class _ExplorePageState extends State<ExplorePage> {
     return tag.split('-').map((word) {
       return word[0].toUpperCase() + word.substring(1);
     }).join(' ');
+  }
+
+  List<Color> _getAccentColors(int postId) {
+    final gradients = [
+      [const Color(0xFF6366F1), const Color(0xFF8B5CF6)],
+      [const Color(0xFF8B5CF6), const Color(0xFFEC4899)],
+      [const Color(0xFF3B82F6), const Color(0xFF06B6D4)],
+      [const Color(0xFFEC4899), const Color(0xFFF59E0B)],
+      [const Color(0xFF06B6D4), const Color(0xFF10B981)],
+      [const Color(0xFFF59E0B), const Color(0xFFEF4444)],
+    ];
+    return gradients[postId % gradients.length];
   }
 
   Widget _buildError(String message) {

@@ -187,7 +187,7 @@ class _HomePageState extends State<HomePage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.all(isSelected ? 8 : 6),
+              padding: EdgeInsets.all(isSelected ? 8 : 6),
               decoration: isSelected
                   ? BoxDecoration(
                       gradient: const LinearGradient(
