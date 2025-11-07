@@ -158,7 +158,12 @@ class _WriteArticlePageState extends State<WriteArticlePage> {
       // Silently fail if there's an error loading draft
       debugPrint('Error loading draft: $e');
       // Clear corrupted draft
-      prefs.remove(_draftKey);
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove(_draftKey);
+      } catch (clearError) {
+        debugPrint('Error clearing corrupted draft: $clearError');
+      }
     }
   }
 
