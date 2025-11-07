@@ -34,7 +34,7 @@ class _HomeDashboardPageState extends State<HomeDashboardPage> {
   void _onScroll() {
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 200) {
-      final controller = context.read<HomeController>();
+      final controller = Modular.get<HomeController>();
       if (controller.state is HomeLoaded) {
         controller.loadMore();
       }
@@ -64,7 +64,7 @@ class _HomeDashboardPageState extends State<HomeDashboardPage> {
                 : state as HomeLoaded;
 
             return RefreshIndicator(
-              onRefresh: () => context.read<HomeController>().refresh(),
+              onRefresh: () => Modular.get<HomeController>().refresh(),
               child: CustomScrollView(
                 controller: _scrollController,
                 slivers: [
@@ -144,7 +144,7 @@ class _HomeDashboardPageState extends State<HomeDashboardPage> {
           ),
           const SizedBox(height: 24),
           ElevatedButton.icon(
-            onPressed: () => context.read<HomeController>().refresh(),
+            onPressed: () => Modular.get<HomeController>().refresh(),
             icon: const Icon(Icons.refresh),
             label: const Text('Try Again'),
           ),
@@ -286,7 +286,7 @@ class _HomeDashboardPageState extends State<HomeDashboardPage> {
                     icon: const Icon(Icons.clear),
                     onPressed: () {
                       _searchController.clear();
-                      context.read<HomeController>().searchProducts('');
+                      Modular.get<HomeController>().searchProducts('');
                     },
                   )
                 : null,
@@ -297,7 +297,7 @@ class _HomeDashboardPageState extends State<HomeDashboardPage> {
             ),
           ),
           onSubmitted: (query) {
-            context.read<HomeController>().searchProducts(query);
+            Modular.get<HomeController>().searchProducts(query);
           },
         ),
       ),
@@ -315,14 +315,14 @@ class _HomeDashboardPageState extends State<HomeDashboardPage> {
           _buildCategoryChip(
             label: 'All',
             isSelected: state.selectedCategory == null,
-            onTap: () => context.read<HomeController>().filterByCategory(null),
+            onTap: () => Modular.get<HomeController>().filterByCategory(null),
           ),
           ...state.categories.take(8).map((category) {
             return _buildCategoryChip(
               label: _formatCategoryName(category),
               isSelected: state.selectedCategory == category,
               onTap: () =>
-                  context.read<HomeController>().filterByCategory(category),
+                  Modular.get<HomeController>().filterByCategory(category),
             );
           }),
         ],
@@ -413,21 +413,22 @@ class _HomeDashboardPageState extends State<HomeDashboardPage> {
               ),
             ),
             onSelected: (value) {
+              final controller = Modular.get<HomeController>();
               switch (value) {
                 case 'price_asc':
-                  context.read<HomeController>().sortProducts('price', 'asc');
+                  controller.sortProducts('price', 'asc');
                   break;
                 case 'price_desc':
-                  context.read<HomeController>().sortProducts('price', 'desc');
+                  controller.sortProducts('price', 'desc');
                   break;
                 case 'title_asc':
-                  context.read<HomeController>().sortProducts('title', 'asc');
+                  controller.sortProducts('title', 'asc');
                   break;
                 case 'rating_desc':
-                  context.read<HomeController>().sortProducts('rating', 'desc');
+                  controller.sortProducts('rating', 'desc');
                   break;
                 case 'default':
-                  context.read<HomeController>().sortProducts(null, null);
+                  controller.sortProducts(null, null);
                   break;
               }
             },
