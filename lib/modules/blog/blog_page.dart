@@ -42,7 +42,7 @@ class _BlogPageState extends State<BlogPage> {
   @override
   Widget build(BuildContext context) {
     final authController = Modular.get<AuthController>();
-    final user = authController.currentUser;
+    final user = authController.getCurrentUser();
 
     return Scaffold(
       body: BlocBuilder<BlogController, BlogState>(
