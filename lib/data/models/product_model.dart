@@ -46,7 +46,14 @@ class ProductModel {
   static String _parseString(dynamic value) {
     if (value == null) return '';
     if (value is String) return value;
-    if (value is Map) return value['name']?.toString() ?? value.toString();
+    if (value is Map) {
+      // Try multiple common keys for nested objects
+      return value['name']?.toString() ??
+             value['slug']?.toString() ??
+             value['title']?.toString() ??
+             value['value']?.toString() ??
+             '';
+    }
     return value.toString();
   }
 

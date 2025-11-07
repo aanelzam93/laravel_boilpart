@@ -102,13 +102,34 @@ class HomeController extends Cubit<HomeState> {
       final categories = results[0] as List<String>;
       final productsData = results[1] as Map<String, dynamic>;
 
-      final products = (productsData['products'] as List)
-          .map((json) => ProductModel.fromJson(json))
-          .toList();
+      // Safely parse products with error handling for individual items
+      final productsList = productsData['products'];
+      final products = productsList is List
+          ? productsList
+              .map((json) {
+                try {
+                  if (json is Map<String, dynamic>) {
+                    return ProductModel.fromJson(json);
+                  }
+                  return null;
+                } catch (e) {
+                  print('Error parsing product: $e');
+                  return null;
+                }
+              })
+              .whereType<ProductModel>()
+              .toList()
+          : <ProductModel>[];
 
-      final total = productsData['total'] ?? 0;
-      final limit = productsData['limit'] ?? 20;
-      final skip = productsData['skip'] ?? 0;
+      final total = productsData['total'] is int
+          ? productsData['total']
+          : int.tryParse(productsData['total']?.toString() ?? '0') ?? 0;
+      final limit = productsData['limit'] is int
+          ? productsData['limit']
+          : int.tryParse(productsData['limit']?.toString() ?? '20') ?? 20;
+      final skip = productsData['skip'] is int
+          ? productsData['skip']
+          : int.tryParse(productsData['skip']?.toString() ?? '0') ?? 0;
 
       emit(HomeLoaded(
         products: products,
@@ -177,9 +198,24 @@ class HomeController extends Cubit<HomeState> {
         searchQuery: currentState.searchQuery,
       );
 
-      final newProducts = (productsData['products'] as List)
-          .map((json) => ProductModel.fromJson(json))
-          .toList();
+      // Safely parse products with error handling for individual items
+      final productsList = productsData['products'];
+      final newProducts = productsList is List
+          ? productsList
+              .map((json) {
+                try {
+                  if (json is Map<String, dynamic>) {
+                    return ProductModel.fromJson(json);
+                  }
+                  return null;
+                } catch (e) {
+                  print('Error parsing product: $e');
+                  return null;
+                }
+              })
+              .whereType<ProductModel>()
+              .toList()
+          : <ProductModel>[];
 
       final allProducts = [...currentState.products, ...newProducts];
 

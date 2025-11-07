@@ -121,7 +121,15 @@ class ProductService {
       );
 
       if (response.statusCode == 200) {
-        return List<String>.from(response.data);
+        // Handle both string arrays and object arrays
+        if (response.data is List) {
+          return (response.data as List).map((item) {
+            if (item is String) return item;
+            if (item is Map) return item['slug']?.toString() ?? item['name']?.toString() ?? item.toString();
+            return item.toString();
+          }).toList();
+        }
+        return [];
       } else {
         throw Exception('Failed to get categories: ${response.statusMessage}');
       }
@@ -167,7 +175,15 @@ class ProductService {
       );
 
       if (response.statusCode == 200) {
-        return List<String>.from(response.data);
+        // Handle both string arrays and object arrays
+        if (response.data is List) {
+          return (response.data as List).map((item) {
+            if (item is String) return item;
+            if (item is Map) return item['slug']?.toString() ?? item['name']?.toString() ?? item.toString();
+            return item.toString();
+          }).toList();
+        }
+        return [];
       } else {
         throw Exception('Failed to get category list: ${response.statusMessage}');
       }
