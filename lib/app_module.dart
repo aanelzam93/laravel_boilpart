@@ -13,6 +13,7 @@ import 'modules/home/home_controller.dart';
 import 'modules/home/home_module.dart';
 import 'modules/blog/blog_controller.dart';
 import 'modules/blog/blog_module.dart';
+import 'modules/article/article_module.dart';
 
 class AppModule extends Module {
   @override
@@ -64,6 +65,7 @@ class AppModule extends Module {
     r.module('/auth', module: AuthModule());
     r.module('/home', module: HomeModule());
     r.module('/blog', module: BlogModule());
+    r.module('/article', module: ArticleModule());
     r.redirect('/', to: '/auth/');
   }
 }

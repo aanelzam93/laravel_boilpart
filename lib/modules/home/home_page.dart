@@ -2,14 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import '../../core/localization/app_localizations.dart';
-import '../../core/theme/app_colors.dart';
-import '../../data/repositories/item_repository.dart';
-import '../crud/crud_controller.dart';
-import '../crud/crud_page.dart';
 import '../profile/profile_page.dart';
 import '../blog/blog_controller.dart';
-import '../blog/blog_page.dart';
-import 'home_dashboard_page.dart';
+import '../article/article_feed_page.dart';
+import '../article/explore_page.dart';
+import '../article/write_article_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -20,18 +17,19 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _currentIndex = 0;
-  late final CrudController _crudController;
 
   @override
   void initState() {
     super.initState();
-    _crudController = CrudController(Modular.get<ItemRepository>());
   }
 
   @override
   void dispose() {
-    _crudController.close();
     super.dispose();
+  }
+
+  void _navigateToWrite() {
+    Modular.to.pushNamed('/article/write');
   }
 
   @override
@@ -39,15 +37,15 @@ class _HomePageState extends State<HomePage> {
     final l10n = AppLocalizations.of(context);
 
     final pages = [
-      const HomeDashboardPage(),
       BlocProvider.value(
         value: Modular.get<BlogController>()..loadData(),
-        child: const BlogPage(),
+        child: const ArticleFeedPage(),
       ),
       BlocProvider.value(
-        value: _crudController,
-        child: const CrudPage(),
+        value: Modular.get<BlogController>(),
+        child: const ExplorePage(),
       ),
+      Container(), // Placeholder for Write (handled by navigation)
       const ProfilePage(),
     ];
 
@@ -76,25 +74,20 @@ class _HomePageState extends State<HomePage> {
                 _buildNavItem(
                   icon: Icons.home_outlined,
                   selectedIcon: Icons.home,
-                  label: l10n.home,
+                  label: 'Home',
                   index: 0,
                 ),
                 _buildNavItem(
-                  icon: Icons.article_outlined,
-                  selectedIcon: Icons.article,
-                  label: 'Blog',
+                  icon: Icons.explore_outlined,
+                  selectedIcon: Icons.explore,
+                  label: 'Explore',
                   index: 1,
                 ),
-                _buildNavItem(
-                  icon: Icons.inventory_outlined,
-                  selectedIcon: Icons.inventory,
-                  label: 'Items',
-                  index: 2,
-                ),
+                _buildWriteButton(),
                 _buildNavItem(
                   icon: Icons.person_outline,
                   selectedIcon: Icons.person,
-                  label: l10n.profile,
+                  label: 'Profile',
                   index: 3,
                 ),
               ],
@@ -112,7 +105,7 @@ class _HomePageState extends State<HomePage> {
     required int index,
   }) {
     final isSelected = _currentIndex == index;
-    
+
     return GestureDetector(
       onTap: () {
         setState(() {
@@ -121,27 +114,56 @@ class _HomePageState extends State<HomePage> {
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected 
-              ? AppColors.primary.withOpacity(0.1)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               isSelected ? selectedIcon : icon,
-              color: isSelected ? AppColors.primary : AppColors.grey,
+              color: isSelected ? Colors.black : Colors.grey[600],
               size: 24,
             ),
             const SizedBox(height: 4),
             Text(
               label,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                color: isSelected ? AppColors.primary : AppColors.grey,
+                color: isSelected ? Colors.black : Colors.grey[600],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWriteButton() {
+    return GestureDetector(
+      onTap: _navigateToWrite,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.black,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.edit_outlined,
+                color: Colors.white,
+                size: 20,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Write',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.normal,
+                color: Colors.grey[600],
               ),
             ),
           ],
