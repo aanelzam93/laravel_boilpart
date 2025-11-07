@@ -19,14 +19,43 @@ class PostModel {
 
   factory PostModel.fromJson(Map<String, dynamic> json) {
     return PostModel(
-      id: json['id'] ?? 0,
-      title: json['title'] ?? '',
-      body: json['body'] ?? '',
-      userId: json['userId'] ?? 0,
-      tags: json['tags'] != null ? List<String>.from(json['tags']) : [],
-      reactions: json['reactions'] ?? 0,
-      views: json['views'] ?? 0,
+      id: _parseInt(json['id']),
+      title: _parseString(json['title']),
+      body: _parseString(json['body']),
+      userId: _parseInt(json['userId']),
+      tags: _parseStringList(json['tags']),
+      reactions: _parseInt(json['reactions']),
+      views: _parseInt(json['views']),
     );
+  }
+
+  static int _parseInt(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
+  }
+
+  static String _parseString(dynamic value) {
+    if (value == null) return '';
+    if (value is String) return value;
+    if (value is Map) {
+      return value['name']?.toString() ??
+             value['slug']?.toString() ??
+             value['title']?.toString() ??
+             value['value']?.toString() ??
+             '';
+    }
+    return value.toString();
+  }
+
+  static List<String> _parseStringList(dynamic value) {
+    if (value == null) return [];
+    if (value is List) {
+      return value.map((e) => _parseString(e)).toList();
+    }
+    return [];
   }
 
   Map<String, dynamic> toJson() {

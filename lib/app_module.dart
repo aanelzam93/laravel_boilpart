@@ -11,6 +11,8 @@ import 'modules/auth/auth_controller.dart';
 import 'modules/auth/auth_module.dart';
 import 'modules/home/home_controller.dart';
 import 'modules/home/home_module.dart';
+import 'modules/blog/blog_controller.dart';
+import 'modules/blog/blog_module.dart';
 
 class AppModule extends Module {
   @override
@@ -50,12 +52,18 @@ class AppModule extends Module {
         productService: i.get<ProductService>(),
       ),
     );
+    i.addLazySingleton<BlogController>(
+      () => BlogController(
+        postService: i.get<PostService>(),
+      ),
+    );
   }
 
   @override
   void routes(r) {
     r.module('/auth', module: AuthModule());
     r.module('/home', module: HomeModule());
+    r.module('/blog', module: BlogModule());
     r.redirect('/', to: '/auth/');
   }
 }
