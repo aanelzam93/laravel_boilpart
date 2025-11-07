@@ -71,6 +71,9 @@ class _HomeDashboardPageState extends State<HomeDashboardPage> {
                   // App Bar
                   _buildAppBar(user?.fullName ?? user?.username ?? 'User'),
 
+                  // Banner
+                  SliverToBoxAdapter(child: _buildBanner()),
+
                   // Search Bar
                   SliverToBoxAdapter(
                     child: _buildSearchBar(currentState),
@@ -496,19 +499,21 @@ class _HomeDashboardPageState extends State<HomeDashboardPage> {
   }
 
   Widget _buildProductCard(ProductModel product) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
+    return GestureDetector(
+      onTap: () => Modular.to.pushNamed('/home/product/${product.id}'),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Product Image
@@ -607,6 +612,78 @@ class _HomeDashboardPageState extends State<HomeDashboardPage> {
             ),
           ),
         ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBanner() {
+    final banners = [
+      {
+        "title": "Summer Sale!",
+        "subtitle": "Up to 50% OFF",
+        "colors": [const Color(0xFFFF6B6B), const Color(0xFFFFE66D)]
+      },
+      {
+        "title": "New Arrivals",
+        "subtitle": "Check latest products",
+        "colors": [const Color(0xFF4FACFE), const Color(0xFF00F2FE)]
+      },
+      {
+        "title": "Special Offer",
+        "subtitle": "Free shipping >$50",
+        "colors": [const Color(0xFF667EEA), const Color(0xFF764BA2)]
+      },
+    ];
+
+    return Container(
+      height: 160,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: PageView.builder(
+        itemCount: banners.length,
+        itemBuilder: (context, index) {
+          final banner = banners[index];
+          return Container(
+            margin: const EdgeInsets.symmetric(horizontal: 4),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                  colors: banner["colors"] as List<Color>),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: (banner["colors"] as List<Color>)[0].withOpacity(0.3),
+                  blurRadius: 15,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    banner["title"] as String,
+                    style: const TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    banner["subtitle"] as String,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
