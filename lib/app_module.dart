@@ -66,6 +66,6 @@ class AppModule extends Module {
     r.module('/home', module: HomeModule());
     r.module('/blog', module: BlogModule());
     r.module('/article', module: ArticleModule());
-    r.redirect('/', to: '/auth/');
+    r.redirect('/', to: '/home/');
   }
 }

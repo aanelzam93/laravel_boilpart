@@ -4,6 +4,7 @@ import 'package:flutter_modular/flutter_modular.dart';
 import '../../core/localization/app_localizations.dart';
 import '../profile/profile_page.dart';
 import '../blog/blog_controller.dart';
+import '../auth/auth_controller.dart';
 import '../article/article_feed_page.dart';
 import '../article/explore_page.dart';
 import '../article/write_article_page.dart';
@@ -29,7 +30,75 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _navigateToWrite() {
-    Modular.to.pushNamed('/article/write');
+    // Check if user is logged in first
+    final authController = Modular.get<AuthController>();
+    final user = authController.getCurrentUser();
+
+    if (user == null) {
+      // Show login required dialog
+      _showLoginRequired();
+    } else {
+      // User is logged in, navigate to write page
+      Modular.to.pushNamed('/article/write');
+    }
+  }
+
+  void _showLoginRequired() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                ),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.lock_outline, color: Colors.white, size: 24),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'Login Required',
+                style: TextStyle(fontSize: 18),
+              ),
+            ),
+          ],
+        ),
+        content: const Text(
+          'You need to login first to create articles.',
+          style: TextStyle(fontSize: 15),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: Colors.grey.shade700),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              Modular.to.navigate('/auth/');
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.purple.shade400,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            ),
+            child: const Text('Login'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -117,10 +186,28 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              isSelected ? selectedIcon : icon,
-              color: isSelected ? Colors.black : Colors.grey[600],
-              size: 24,
+            Container(
+              padding: const EdgeInsets.all(isSelected ? 8 : 6),
+              decoration: isSelected
+                  ? BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.purple.shade200.withOpacity(0.4),
+                          blurRadius: 6,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    )
+                  : null,
+              child: Icon(
+                isSelected ? selectedIcon : icon,
+                color: isSelected ? Colors.white : Colors.grey[600],
+                size: isSelected ? 24 : 24,
+              ),
             ),
             const SizedBox(height: 4),
             Text(
@@ -128,7 +215,7 @@ class _HomePageState extends State<HomePage> {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                color: isSelected ? Colors.black : Colors.grey[600],
+                color: isSelected ? Colors.purple.shade600 : Colors.grey[600],
               ),
             ),
           ],
@@ -146,15 +233,26 @@ class _HomePageState extends State<HomePage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Colors.black,
-                borderRadius: BorderRadius.circular(8),
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.purple.shade200.withOpacity(0.5),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
               child: const Icon(
                 Icons.edit_outlined,
                 color: Colors.white,
-                size: 20,
+                size: 22,
               ),
             ),
             const SizedBox(height: 4),
@@ -162,8 +260,8 @@ class _HomePageState extends State<HomePage> {
               'Write',
               style: TextStyle(
                 fontSize: 11,
-                fontWeight: FontWeight.normal,
-                color: Colors.grey[600],
+                fontWeight: FontWeight.w600,
+                color: Colors.grey[700],
               ),
             ),
           ],

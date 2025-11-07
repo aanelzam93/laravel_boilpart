@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
+import '../auth/auth_controller.dart';
 
 class WriteArticlePage extends StatefulWidget {
   final int? articleId; // For editing existing article
@@ -20,9 +21,76 @@ class _WriteArticlePageState extends State<WriteArticlePage> {
   @override
   void initState() {
     super.initState();
+    _checkAuth();
     if (widget.articleId != null) {
       _loadArticle();
     }
+  }
+
+  void _checkAuth() {
+    // Check if user is logged in
+    final authController = Modular.get<AuthController>();
+    final user = authController.getCurrentUser();
+
+    if (user == null) {
+      // User not logged in, redirect to login
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showLoginRequired();
+      });
+    }
+  }
+
+  void _showLoginRequired() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                ),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.lock_outline, color: Colors.white, size: 24),
+            ),
+            const SizedBox(width: 12),
+            const Text('Login Required'),
+          ],
+        ),
+        content: const Text(
+          'You need to login first to create or edit articles.',
+          style: TextStyle(fontSize: 15),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              Modular.to.navigate('/home/');
+            },
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              Modular.to.navigate('/auth/');
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.purple.shade400,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Login'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _loadArticle() {
