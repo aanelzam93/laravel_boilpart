@@ -26,14 +26,16 @@ class AuthService {
       if (response.statusCode == 200) {
         return response.data;
       } else {
-        throw Exception('Login failed');
+        throw Exception('Login failed: ${response.statusMessage}');
       }
     } on DioException catch (e) {
       if (e.response != null) {
-        throw Exception(e.response?.data['message'] ?? 'Login failed');
+        throw Exception(e.response?.data['message'] ?? 'Login failed. Please check your credentials.');
       } else {
-        throw Exception('Network error: ${e.message}');
+        throw Exception(_handleDioError(e));
       }
+    } catch (e) {
+      throw Exception('Unexpected error during login: ${e.toString()}');
     }
   }
 
@@ -48,14 +50,16 @@ class AuthService {
       if (response.statusCode == 200) {
         return UserModel.fromJson(response.data);
       } else {
-        throw Exception('Failed to get user data');
+        throw Exception('Failed to get user data: ${response.statusMessage}');
       }
     } on DioException catch (e) {
       if (e.response != null) {
         throw Exception(e.response?.data['message'] ?? 'Failed to get user data');
       } else {
-        throw Exception('Network error: ${e.message}');
+        throw Exception(_handleDioError(e));
       }
+    } catch (e) {
+      throw Exception('Unexpected error: ${e.toString()}');
     }
   }
 
@@ -72,10 +76,31 @@ class AuthService {
       if (response.statusCode == 200) {
         return response.data['token'];
       } else {
-        throw Exception('Token refresh failed');
+        throw Exception('Token refresh failed: ${response.statusMessage}');
       }
     } on DioException catch (e) {
-      throw Exception('Token refresh failed: ${e.message}');
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error: ${e.toString()}');
+    }
+  }
+
+  String _handleDioError(DioException e) {
+    switch (e.type) {
+      case DioExceptionType.connectionTimeout:
+        return 'Connection timeout. Please check your internet connection.';
+      case DioExceptionType.sendTimeout:
+        return 'Request timeout. Please try again.';
+      case DioExceptionType.receiveTimeout:
+        return 'Server response timeout. Please try again.';
+      case DioExceptionType.badResponse:
+        return 'Server error: ${e.response?.statusCode}. Please try again later.';
+      case DioExceptionType.cancel:
+        return 'Request was cancelled.';
+      case DioExceptionType.connectionError:
+        return 'No internet connection. Please check your network and try again.';
+      default:
+        return 'Network error: ${e.message ?? "Unknown error"}';
     }
   }
 }

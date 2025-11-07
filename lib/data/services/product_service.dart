@@ -38,10 +38,31 @@ class ProductService {
       if (response.statusCode == 200) {
         return response.data;
       } else {
-        throw Exception('Failed to get products');
+        throw Exception('Failed to get products: ${response.statusMessage}');
       }
     } on DioException catch (e) {
-      throw Exception('Network error: ${e.message}');
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error: ${e.toString()}');
+    }
+  }
+
+  String _handleDioError(DioException e) {
+    switch (e.type) {
+      case DioExceptionType.connectionTimeout:
+        return 'Connection timeout. Please check your internet connection.';
+      case DioExceptionType.sendTimeout:
+        return 'Request timeout. Please try again.';
+      case DioExceptionType.receiveTimeout:
+        return 'Server response timeout. Please try again.';
+      case DioExceptionType.badResponse:
+        return 'Server error: ${e.response?.statusCode}. Please try again later.';
+      case DioExceptionType.cancel:
+        return 'Request was cancelled.';
+      case DioExceptionType.connectionError:
+        return 'No internet connection. Please check your network and try again.';
+      default:
+        return 'Network error: ${e.message ?? "Unknown error"}';
     }
   }
 
@@ -55,10 +76,12 @@ class ProductService {
       if (response.statusCode == 200) {
         return ProductModel.fromJson(response.data);
       } else {
-        throw Exception('Failed to get product');
+        throw Exception('Failed to get product: ${response.statusMessage}');
       }
     } on DioException catch (e) {
-      throw Exception('Network error: ${e.message}');
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error: ${e.toString()}');
     }
   }
 
@@ -81,10 +104,12 @@ class ProductService {
       if (response.statusCode == 200) {
         return response.data;
       } else {
-        throw Exception('Failed to search products');
+        throw Exception('Failed to search products: ${response.statusMessage}');
       }
     } on DioException catch (e) {
-      throw Exception('Network error: ${e.message}');
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error: ${e.toString()}');
     }
   }
 
@@ -98,10 +123,12 @@ class ProductService {
       if (response.statusCode == 200) {
         return List<String>.from(response.data);
       } else {
-        throw Exception('Failed to get categories');
+        throw Exception('Failed to get categories: ${response.statusMessage}');
       }
     } on DioException catch (e) {
-      throw Exception('Network error: ${e.message}');
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error: ${e.toString()}');
     }
   }
 
@@ -123,10 +150,12 @@ class ProductService {
       if (response.statusCode == 200) {
         return response.data;
       } else {
-        throw Exception('Failed to get products by category');
+        throw Exception('Failed to get products by category: ${response.statusMessage}');
       }
     } on DioException catch (e) {
-      throw Exception('Network error: ${e.message}');
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error: ${e.toString()}');
     }
   }
 
@@ -140,10 +169,12 @@ class ProductService {
       if (response.statusCode == 200) {
         return List<String>.from(response.data);
       } else {
-        throw Exception('Failed to get category list');
+        throw Exception('Failed to get category list: ${response.statusMessage}');
       }
     } on DioException catch (e) {
-      throw Exception('Network error: ${e.message}');
+      throw Exception(_handleDioError(e));
+    } catch (e) {
+      throw Exception('Unexpected error: ${e.toString()}');
     }
   }
 }

@@ -15,6 +15,25 @@ class DioClient {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
+        validateStatus: (status) {
+          return status != null && status < 500;
+        },
+      ),
+    );
+
+    // Add retry interceptor for network errors
+    _dio.interceptors.add(
+      InterceptorsWrapper(
+        onError: (error, handler) async {
+          if (_shouldRetry(error)) {
+            try {
+              return handler.resolve(await _retry(error.requestOptions));
+            } catch (e) {
+              return handler.next(error);
+            }
+          }
+          return handler.next(error);
+        },
       ),
     );
 
@@ -27,6 +46,27 @@ class DioClient {
         error: true,
         compact: true,
       ),
+    );
+  }
+
+  bool _shouldRetry(DioException error) {
+    return error.type == DioExceptionType.connectionTimeout ||
+        error.type == DioExceptionType.sendTimeout ||
+        error.type == DioExceptionType.receiveTimeout ||
+        error.type == DioExceptionType.connectionError;
+  }
+
+  Future<Response> _retry(RequestOptions requestOptions) async {
+    final options = Options(
+      method: requestOptions.method,
+      headers: requestOptions.headers,
+    );
+
+    return _dio.request(
+      requestOptions.path,
+      data: requestOptions.data,
+      queryParameters: requestOptions.queryParameters,
+      options: options,
     );
   }
 
