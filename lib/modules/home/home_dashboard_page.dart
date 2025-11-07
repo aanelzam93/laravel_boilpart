@@ -631,7 +631,7 @@ class _HomeDashboardPageState extends State<HomeDashboardPage> {
       },
       {
         "title": "Special Offer",
-        "subtitle": "Free shipping >$50",
+        "subtitle": "Free shipping >\$50",
         "colors": [const Color(0xFF667EEA), const Color(0xFF764BA2)]
       },
     ];
