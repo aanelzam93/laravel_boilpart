@@ -48,7 +48,6 @@ class AppModule extends Module {
     i.addLazySingleton<HomeController>(
       () => HomeController(
         productService: i.get<ProductService>(),
-        postService: i.get<PostService>(),
       ),
     );
   }

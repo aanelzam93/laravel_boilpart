@@ -8,18 +8,31 @@ class ProductService {
 
   ProductService(this._dioClient);
 
-  /// Get all products with pagination
+  /// Get all products with pagination and sorting
+  /// sortBy: 'title', 'price', 'rating', 'stock', 'brand', 'category'
+  /// order: 'asc', 'desc'
   Future<Map<String, dynamic>> getProducts({
     int limit = 20,
     int skip = 0,
+    String? sortBy,
+    String? order,
   }) async {
     try {
+      final queryParameters = {
+        'limit': limit,
+        'skip': skip,
+      };
+
+      if (sortBy != null && sortBy.isNotEmpty) {
+        queryParameters['sortBy'] = sortBy;
+      }
+      if (order != null && order.isNotEmpty) {
+        queryParameters['order'] = order;
+      }
+
       final response = await _dioClient.dio.get(
         AppConstants.products,
-        queryParameters: {
-          'limit': limit,
-          'skip': skip,
-        },
+        queryParameters: queryParameters,
       );
 
       if (response.statusCode == 200) {
@@ -49,13 +62,19 @@ class ProductService {
     }
   }
 
-  /// Search products
-  Future<Map<String, dynamic>> searchProducts(String query) async {
+  /// Search products with pagination
+  Future<Map<String, dynamic>> searchProducts(
+    String query, {
+    int limit = 20,
+    int skip = 0,
+  }) async {
     try {
       final response = await _dioClient.dio.get(
         '${AppConstants.products}/search',
         queryParameters: {
           'q': query,
+          'limit': limit,
+          'skip': skip,
         },
       );
 
@@ -86,17 +105,42 @@ class ProductService {
     }
   }
 
-  /// Get products by category
-  Future<Map<String, dynamic>> getProductsByCategory(String category) async {
+  /// Get products by category with pagination
+  Future<Map<String, dynamic>> getProductsByCategory(
+    String category, {
+    int limit = 20,
+    int skip = 0,
+  }) async {
     try {
       final response = await _dioClient.dio.get(
         '${AppConstants.products}/category/$category',
+        queryParameters: {
+          'limit': limit,
+          'skip': skip,
+        },
       );
 
       if (response.statusCode == 200) {
         return response.data;
       } else {
         throw Exception('Failed to get products by category');
+      }
+    } on DioException catch (e) {
+      throw Exception('Network error: ${e.message}');
+    }
+  }
+
+  /// Get category list (slug format)
+  Future<List<String>> getCategoryList() async {
+    try {
+      final response = await _dioClient.dio.get(
+        '${AppConstants.products}/category-list',
+      );
+
+      if (response.statusCode == 200) {
+        return List<String>.from(response.data);
+      } else {
+        throw Exception('Failed to get category list');
       }
     } on DioException catch (e) {
       throw Exception('Network error: ${e.message}');
