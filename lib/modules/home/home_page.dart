@@ -7,6 +7,8 @@ import '../../data/repositories/item_repository.dart';
 import '../crud/crud_controller.dart';
 import '../crud/crud_page.dart';
 import '../profile/profile_page.dart';
+import '../blog/blog_controller.dart';
+import '../blog/blog_page.dart';
 import 'home_dashboard_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -35,16 +37,20 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    
+
     final pages = [
       const HomeDashboardPage(),
+      BlocProvider.value(
+        value: Modular.get<BlogController>()..loadData(),
+        child: const BlogPage(),
+      ),
       BlocProvider.value(
         value: _crudController,
         child: const CrudPage(),
       ),
       const ProfilePage(),
     ];
-    
+
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,
@@ -74,16 +80,22 @@ class _HomePageState extends State<HomePage> {
                   index: 0,
                 ),
                 _buildNavItem(
+                  icon: Icons.article_outlined,
+                  selectedIcon: Icons.article,
+                  label: 'Blog',
+                  index: 1,
+                ),
+                _buildNavItem(
                   icon: Icons.inventory_outlined,
                   selectedIcon: Icons.inventory,
                   label: 'Items',
-                  index: 1,
+                  index: 2,
                 ),
                 _buildNavItem(
                   icon: Icons.person_outline,
                   selectedIcon: Icons.person,
                   label: l10n.profile,
-                  index: 2,
+                  index: 3,
                 ),
               ],
             ),
