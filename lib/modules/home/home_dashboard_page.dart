@@ -1,11 +1,11 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_modular/flutter_modular.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../../core/localization/app_localizations.dart';
-import '../../core/localization/language_cubit.dart';
 import '../../core/theme/app_colors.dart';
-import '../notifications/notifications_page.dart';
+import '../../data/models/product_model.dart';
+import '../auth/auth_controller.dart';
+import 'home_controller.dart';
 
 class HomeDashboardPage extends StatefulWidget {
   const HomeDashboardPage({super.key});
@@ -15,429 +15,592 @@ class HomeDashboardPage extends StatefulWidget {
 }
 
 class _HomeDashboardPageState extends State<HomeDashboardPage> {
-  int _currentBannerIndex = 0;
+  final ScrollController _scrollController = ScrollController();
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      final controller = context.read<HomeController>();
+      if (controller.state is HomeLoaded) {
+        controller.loadMore();
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final prefs = Modular.get<SharedPreferences>();
-    final username = prefs.getString('username') ?? 'User';
+    final authController = Modular.get<AuthController>();
+    final user = authController.getCurrentUser();
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      body: CustomScrollView(
-        slivers: [
-          // Custom App Bar with Gradient
-          SliverAppBar(
-            expandedHeight: 120,
-            floating: false,
-            pinned: true,
-            backgroundColor: AppColors.primary,
-            flexibleSpace: FlexibleSpaceBar(
-              background: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [AppColors.primary, AppColors.primary.withOpacity(0.8)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+      body: BlocBuilder<HomeController, HomeState>(
+        builder: (context, state) {
+          if (state is HomeLoading) {
+            return _buildLoading();
+          }
+
+          if (state is HomeError) {
+            return _buildError(state.message);
+          }
+
+          if (state is HomeLoaded || state is HomeLoadingMore) {
+            final currentState = state is HomeLoadingMore
+                ? state.currentState
+                : state as HomeLoaded;
+
+            return RefreshIndicator(
+              onRefresh: () => context.read<HomeController>().refresh(),
+              child: CustomScrollView(
+                controller: _scrollController,
+                slivers: [
+                  // App Bar
+                  _buildAppBar(user?.fullName ?? user?.username ?? 'User'),
+
+                  // Search Bar
+                  SliverToBoxAdapter(
+                    child: _buildSearchBar(currentState),
                   ),
-                ),
-                child: SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Row(
+
+                  // Category Filters
+                  SliverToBoxAdapter(
+                    child: _buildCategoryFilters(currentState),
+                  ),
+
+                  // Sort & Results Count
+                  SliverToBoxAdapter(
+                    child: _buildSortBar(currentState),
+                  ),
+
+                  // Product Grid
+                  _buildProductGrid(currentState),
+
+                  // Loading More Indicator
+                  if (state is HomeLoadingMore)
+                    const SliverToBoxAdapter(
+                      child: Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(16.0),
+                          child: CircularProgressIndicator(),
+                        ),
+                      ),
+                    ),
+
+                  // Bottom Padding
+                  const SliverToBoxAdapter(
+                    child: SizedBox(height: 80),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return const SizedBox();
+        },
+      ),
+    );
+  }
+
+  Widget _buildLoading() {
+    return const Center(
+      child: CircularProgressIndicator(),
+    );
+  }
+
+  Widget _buildError(String message) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
+          const SizedBox(height: 16),
+          Text(
+            'Oops! Something went wrong',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey[800],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            style: TextStyle(color: Colors.grey[600]),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: () => context.read<HomeController>().refresh(),
+            icon: const Icon(Icons.refresh),
+            label: const Text('Try Again'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAppBar(String userName) {
+    return SliverAppBar(
+      expandedHeight: 140,
+      floating: false,
+      pinned: true,
+      backgroundColor: const Color(0xFF667EEA),
+      flexibleSpace: FlexibleSpaceBar(
+        background: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Color(0xFF667EEA),
+                Color(0xFF764BA2),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                        child: const CircleAvatar(
+                          radius: 20,
+                          backgroundColor: Colors.white,
+                          child: Icon(Icons.person,
+                              color: Color(0xFF667EEA), size: 24),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            CircleAvatar(
-                              radius: 24,
-                              backgroundColor: Colors.white,
-                              child: Icon(Icons.person, color: AppColors.primary, size: 28),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Welcome Back! 👋',
-                                    style: TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                  Text(
-                                    username,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
+                            const Text(
+                              'Welcome! 👋',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 12,
                               ),
                             ),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(12),
+                            Text(
+                              userName,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
                               ),
-                              child: Stack(
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.notifications_outlined, color: Colors.white),
-                                    onPressed: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => const NotificationsPage(),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                  Positioned(
-                                    right: 8,
-                                    top: 8,
-                                    child: Container(
-                                      padding: const EdgeInsets.all(4),
-                                      decoration: const BoxDecoration(
-                                        color: Colors.red,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      constraints: const BoxConstraints(
-                                        minWidth: 16,
-                                        minHeight: 16,
-                                      ),
-                                      child: const Text(
-                                        '5',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                        textAlign: TextAlign.center,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ],
                         ),
-                      ],
+                      ),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: IconButton(
+                          icon: const Icon(Icons.shopping_cart_outlined,
+                              color: Colors.white),
+                          onPressed: () {
+                            // TODO: Navigate to cart
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Product Catalog',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
+                  const SizedBox(height: 8),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchBar(HomeLoaded state) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: TextField(
+          controller: _searchController,
+          decoration: InputDecoration(
+            hintText: 'Search products...',
+            prefixIcon: Container(
+              margin: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.search, color: Colors.white, size: 20),
+            ),
+            suffixIcon: _searchController.text.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear),
+                    onPressed: () {
+                      _searchController.clear();
+                      context.read<HomeController>().searchProducts('');
+                    },
+                  )
+                : null,
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
+          ),
+          onSubmitted: (query) {
+            context.read<HomeController>().searchProducts(query);
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryFilters(HomeLoaded state) {
+    return Container(
+      height: 50,
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        children: [
+          _buildCategoryChip(
+            label: 'All',
+            isSelected: state.selectedCategory == null,
+            onTap: () => context.read<HomeController>().filterByCategory(null),
+          ),
+          ...state.categories.take(8).map((category) {
+            return _buildCategoryChip(
+              label: _formatCategoryName(category),
+              isSelected: state.selectedCategory == category,
+              onTap: () =>
+                  context.read<HomeController>().filterByCategory(category),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryChip({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          decoration: BoxDecoration(
+            gradient: isSelected
+                ? const LinearGradient(
+                    colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                  )
+                : null,
+            color: isSelected ? null : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isSelected ? Colors.transparent : Colors.grey[300]!,
+            ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: const Color(0xFF667EEA).withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: isSelected ? Colors.white : Colors.grey[700],
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+              fontSize: 14,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSortBar(HomeLoaded state) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            '${state.total} Products',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey[800],
+            ),
+          ),
+          PopupMenuButton<String>(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey[300]!),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.sort, size: 20, color: Color(0xFF667EEA)),
+                  const SizedBox(width: 8),
+                  Text(
+                    _getSortLabel(state.sortBy, state.order),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            onSelected: (value) {
+              switch (value) {
+                case 'price_asc':
+                  context.read<HomeController>().sortProducts('price', 'asc');
+                  break;
+                case 'price_desc':
+                  context.read<HomeController>().sortProducts('price', 'desc');
+                  break;
+                case 'title_asc':
+                  context.read<HomeController>().sortProducts('title', 'asc');
+                  break;
+                case 'rating_desc':
+                  context.read<HomeController>().sortProducts('rating', 'desc');
+                  break;
+                case 'default':
+                  context.read<HomeController>().sortProducts(null, null);
+                  break;
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(value: 'default', child: Text('Default')),
+              const PopupMenuItem(
+                  value: 'price_asc', child: Text('Price: Low to High')),
+              const PopupMenuItem(
+                  value: 'price_desc', child: Text('Price: High to Low')),
+              const PopupMenuItem(
+                  value: 'title_asc', child: Text('Name: A to Z')),
+              const PopupMenuItem(
+                  value: 'rating_desc', child: Text('Rating: High to Low')),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProductGrid(HomeLoaded state) {
+    if (state.products.isEmpty) {
+      return SliverFillRemaining(
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.inventory_2_outlined,
+                  size: 64, color: Colors.grey[400]),
+              const SizedBox(height: 16),
+              Text(
+                'No products found',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[600],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Try adjusting your filters',
+                style: TextStyle(color: Colors.grey[500]),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return SliverPadding(
+      padding: const EdgeInsets.all(16),
+      sliver: SliverGrid(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          childAspectRatio: 0.7,
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
+        ),
+        delegate: SliverChildBuilderDelegate(
+          (context, index) => _buildProductCard(state.products[index]),
+          childCount: state.products.length,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProductCard(ProductModel product) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Product Image
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+            child: AspectRatio(
+              aspectRatio: 1,
+              child: CachedNetworkImage(
+                imageUrl: product.thumbnail,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Container(
+                  color: Colors.grey[200],
+                  child: const Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                ),
+                errorWidget: (context, url, error) => Container(
+                  color: Colors.grey[200],
+                  child: const Icon(Icons.image_not_supported),
                 ),
               ),
             ),
           ),
 
-          SliverToBoxAdapter(
+          // Product Info
+          Expanded(
             child: Padding(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Stats Cards Row
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildStatCard(
-                          icon: Icons.local_fire_department,
-                          value: '15',
-                          label: 'Day Streak',
-                          gradient: const [Color(0xFFFF6B6B), Color(0xFFEE5A6F)],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildStatCard(
-                          icon: Icons.emoji_events,
-                          value: '1250',
-                          label: 'Total XP',
-                          gradient: const [Color(0xFFFFC837), Color(0xFFFF8008)],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildStatCard(
-                          icon: Icons.workspace_premium,
-                          value: '12',
-                          label: 'Badges',
-                          gradient: const [Color(0xFF667EEA), Color(0xFF764BA2)],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Banner Carousel
-                  SizedBox(
-                    height: 180,
-                    child: PageView(
-                      onPageChanged: (index) {
-                        setState(() {
-                          _currentBannerIndex = index;
-                        });
-                      },
-                      children: [
-                        _buildBannerCard(
-                          title: 'Daily Challenge 🎯',
-                          subtitle: 'Complete quick quiz for bonus XP',
-                          reward: '+50 XP',
-                          gradient: const [Color(0xFF11998E), Color(0xFF38EF7D)],
-                          icon: Icons.quiz,
-                        ),
-                        _buildBannerCard(
-                          title: 'Level Up! 🚀',
-                          subtitle: 'You\'re 1250 XP away from Level 9',
-                          reward: '50% Done',
-                          gradient: const [Color(0xFFEB3349), Color(0xFFF45C43)],
-                          icon: Icons.arrow_upward,
-                        ),
-                        _buildBannerCard(
-                          title: 'New Course 📚',
-                          subtitle: 'Check out our latest business course',
-                          reward: 'Start Now',
-                          gradient: const [Color(0xFF4776E6), Color(0xFF8E54E9)],
-                          icon: Icons.menu_book,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Banner Indicator
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(3, (index) {
-                      return Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 4),
-                        width: _currentBannerIndex == index ? 24 : 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: _currentBannerIndex == index
-                              ? AppColors.primary
-                              : AppColors.grey.withOpacity(0.3),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      );
-                    }),
-                  ),
-                  const SizedBox(height: 28),
-
-                  // Quick Actions
-                  const Text(
-                    'Quick Actions',
-                    style: TextStyle(
-                      fontSize: 20,
+                  // Title
+                  Text(
+                    product.title,
+                    style: const TextStyle(
+                      fontSize: 14,
                       fontWeight: FontWeight.bold,
                     ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 4),
 
+                  // Rating
                   Row(
                     children: [
-                      Expanded(
-                        child: _buildQuickAction(
-                          icon: Icons.play_circle_filled,
-                          label: 'Continue\nLearning',
-                          color: const Color(0xFF667EEA),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildQuickAction(
-                          icon: Icons.school,
-                          label: 'Browse\nCourses',
-                          color: const Color(0xFFF093FB),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildQuickAction(
-                          icon: Icons.leaderboard,
-                          label: 'Leader\nBoard',
-                          color: const Color(0xFF4FACFE),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildQuickAction(
-                          icon: Icons.card_giftcard,
-                          label: 'Rewards',
-                          color: const Color(0xFFFFA500),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 28),
-
-                  // Categories
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Categories',
+                      const Icon(Icons.star, color: Colors.amber, size: 14),
+                      const SizedBox(width: 4),
+                      Text(
+                        product.rating.toStringAsFixed(1),
                         style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () {},
-                        child: Text(
-                          'See All',
-                          style: TextStyle(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.w600,
-                          ),
+                          fontSize: 12,
+                          color: Colors.grey[600],
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  const Spacer(),
 
-                  GridView.count(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                    childAspectRatio: 1.5,
-                    children: [
-                      _buildCategoryCard(
-                        icon: Icons.business_center,
-                        title: 'Business',
-                        courses: '24 Courses',
-                        color: const Color(0xFF6C63FF),
-                      ),
-                      _buildCategoryCard(
-                        icon: Icons.code,
-                        title: 'Technology',
-                        courses: '32 Courses',
-                        color: const Color(0xFF00D2FF),
-                      ),
-                      _buildCategoryCard(
-                        icon: Icons.palette,
-                        title: 'Design',
-                        courses: '18 Courses',
-                        color: const Color(0xFFFF6B9D),
-                      ),
-                      _buildCategoryCard(
-                        icon: Icons.trending_up,
-                        title: 'Marketing',
-                        courses: '21 Courses',
-                        color: const Color(0xFF00C9FF),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 28),
-
-                  // Your Progress
+                  // Price
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'Continue Learning',
-                        style: TextStyle(
-                          fontSize: 20,
+                      Text(
+                        '\$${product.price.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
+                          color: Color(0xFF667EEA),
                         ),
                       ),
-                      TextButton(
-                        onPressed: () {},
-                        child: Text(
-                          'View All',
-                          style: TextStyle(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.w600,
+                      if (product.discountPercentage > 0) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
                           ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Course Progress Cards
-                  _buildCourseProgressCard(
-                    icon: Icons.business_center_outlined,
-                    title: 'Business Basics',
-                    description: 'Learn the fundamentals of entrepreneurship',
-                    progress: 0.85,
-                    progressText: '85% Complete',
-                    xp: '+100 XP',
-                    color: const Color(0xFF667EEA),
-                  ),
-                  const SizedBox(height: 12),
-
-                  _buildCourseProgressCard(
-                    icon: Icons.search,
-                    title: 'Market Research',
-                    description: 'Understand target audience and fulfill needs',
-                    progress: 0.60,
-                    progressText: '60% Complete',
-                    xp: '+150 XP',
-                    color: const Color(0xFF4FACFE),
-                  ),
-                  const SizedBox(height: 12),
-
-                  _buildCourseProgressCard(
-                    icon: Icons.assessment_outlined,
-                    title: 'Business Model',
-                    description: 'Design your business structure',
-                    progress: 0.30,
-                    progressText: '30% Complete',
-                    xp: '+200 XP',
-                    color: const Color(0xFFF093FB),
-                  ),
-                  const SizedBox(height: 28),
-
-                  // Achievements
-                  const Text(
-                    'Recent Achievements 🏆',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  SizedBox(
-                    height: 140,
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      children: [
-                        _buildAchievementCard(
-                          icon: Icons.local_fire_department,
-                          title: 'On Fire!',
-                          description: '15 day streak',
-                          gradient: const [Color(0xFFFF6B6B), Color(0xFFEE5A6F)],
-                        ),
-                        _buildAchievementCard(
-                          icon: Icons.stars,
-                          title: 'First Star',
-                          description: 'Complete first course',
-                          gradient: const [Color(0xFFFFC837), Color(0xFFFF8008)],
-                        ),
-                        _buildAchievementCard(
-                          icon: Icons.speed,
-                          title: 'Speed Learner',
-                          description: '5 courses in a week',
-                          gradient: const [Color(0xFF4776E6), Color(0xFF8E54E9)],
-                        ),
-                        _buildAchievementCard(
-                          icon: Icons.workspace_premium,
-                          title: 'Master',
-                          description: 'All badges collected',
-                          gradient: const [Color(0xFF11998E), Color(0xFF38EF7D)],
+                          decoration: BoxDecoration(
+                            color: Colors.red[50],
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            '-${product.discountPercentage.toStringAsFixed(0)}%',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.red[700],
+                            ),
+                          ),
                         ),
                       ],
-                    ),
+                    ],
                   ),
-                  const SizedBox(height: 20),
                 ],
               ),
             ),
@@ -447,417 +610,20 @@ class _HomeDashboardPageState extends State<HomeDashboardPage> {
     );
   }
 
-  // Stat Card Widget
-  Widget _buildStatCard({
-    required IconData icon,
-    required String value,
-    required String label,
-    required List<Color> gradient,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: gradient,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: gradient[0].withOpacity(0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: Colors.white, size: 28),
-          const SizedBox(height: 12),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
+  String _formatCategoryName(String category) {
+    return category
+        .split('-')
+        .map((word) => word[0].toUpperCase() + word.substring(1))
+        .join(' ');
   }
 
-  // Banner Card Widget
-  Widget _buildBannerCard({
-    required String title,
-    required String subtitle,
-    required String reward,
-    required List<Color> gradient,
-    required IconData icon,
-  }) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 4),
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: gradient,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: gradient[0].withOpacity(0.4),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Icon(icon, color: Colors.white, size: 32),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 13,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    reward,
-                    style: TextStyle(
-                      color: gradient[0],
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Quick Action Widget
-  Widget _buildQuickAction({
-    required IconData icon,
-    required String label,
-    required Color color,
-  }) {
-    return GestureDetector(
-      onTap: () {},
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: color, size: 28),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-                height: 1.3,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Category Card Widget
-  Widget _buildCategoryCard({
-    required IconData icon,
-    required String title,
-    required String courses,
-    required Color color,
-  }) {
-    return GestureDetector(
-      onTap: () {},
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: color.withOpacity(0.3),
-            width: 1,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: Colors.white, size: 24),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              courses,
-              style: TextStyle(
-                fontSize: 12,
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Course Progress Card Widget
-  Widget _buildCourseProgressCard({
-    required IconData icon,
-    required String title,
-    required String description,
-    required double progress,
-    required String progressText,
-    required String xp,
-    required Color color,
-  }) {
-    return GestureDetector(
-      onTap: () {},
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(icon, color: color, size: 24),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        description,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    xp,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: color,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  progressText,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                Icon(
-                  Icons.arrow_forward_ios,
-                  size: 14,
-                  color: AppColors.textSecondary,
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: LinearProgressIndicator(
-                value: progress,
-                minHeight: 6,
-                backgroundColor: color.withOpacity(0.1),
-                valueColor: AlwaysStoppedAnimation<Color>(color),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Achievement Card Widget
-  Widget _buildAchievementCard({
-    required IconData icon,
-    required String title,
-    required String description,
-    required List<Color> gradient,
-  }) {
-    return Container(
-      width: 160,
-      margin: const EdgeInsets.only(right: 16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: gradient,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: gradient[0].withOpacity(0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: Colors.white, size: 28),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                description,
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 12,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
+  String _getSortLabel(String? sortBy, String? order) {
+    if (sortBy == null) return 'Sort';
+    if (sortBy == 'price') {
+      return order == 'asc' ? 'Price ↑' : 'Price ↓';
+    }
+    if (sortBy == 'rating') return 'Rating ⭐';
+    if (sortBy == 'title') return 'Name A-Z';
+    return 'Sort';
   }
 }
