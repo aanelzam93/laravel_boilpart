@@ -1,6 +1,9 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
+import 'package:flutter_quill/flutter_quill.dart' as quill;
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../auth/auth_controller.dart';
 
@@ -15,9 +18,13 @@ class WriteArticlePage extends StatefulWidget {
 
 class _WriteArticlePageState extends State<WriteArticlePage> {
   final TextEditingController _titleController = TextEditingController();
-  final TextEditingController _bodyController = TextEditingController();
   final TextEditingController _tagController = TextEditingController();
+  final quill.QuillController _quillController = quill.QuillController.basic();
+
   final List<String> _tags = [];
+  final List<File> _uploadedImages = [];
+  final ImagePicker _imagePicker = ImagePicker();
+
   bool _isPublishing = false;
   bool _isDraftLoaded = false;
 
@@ -115,11 +122,30 @@ class _WriteArticlePageState extends State<WriteArticlePage> {
 
         setState(() {
           _titleController.text = draftData['title'] ?? '';
-          _bodyController.text = draftData['body'] ?? '';
+
+          // Load Quill content
+          if (draftData['content'] != null) {
+            final doc = quill.Document.fromJson(jsonDecode(draftData['content']));
+            _quillController.document = doc;
+          }
+
           _tags.clear();
           if (draftData['tags'] != null) {
             _tags.addAll((draftData['tags'] as List).cast<String>());
           }
+
+          // Load images
+          if (draftData['imagePaths'] != null) {
+            final imagePaths = (draftData['imagePaths'] as List).cast<String>();
+            _uploadedImages.clear();
+            for (final path in imagePaths) {
+              final file = File(path);
+              if (file.existsSync()) {
+                _uploadedImages.add(file);
+              }
+            }
+          }
+
           _isDraftLoaded = true;
         });
 
@@ -149,8 +175,8 @@ class _WriteArticlePageState extends State<WriteArticlePage> {
   @override
   void dispose() {
     _titleController.dispose();
-    _bodyController.dispose();
     _tagController.dispose();
+    _quillController.dispose();
     super.dispose();
   }
 
@@ -170,13 +196,126 @@ class _WriteArticlePageState extends State<WriteArticlePage> {
     });
   }
 
+  Future<void> _pickImages() async {
+    try {
+      final List<XFile> images = await _imagePicker.pickMultiImage();
+
+      if (images.isNotEmpty) {
+        setState(() {
+          for (final image in images) {
+            _uploadedImages.add(File(image.path));
+          }
+        });
+        _showSnackBar('${images.length} image(s) added');
+      }
+    } catch (e) {
+      debugPrint('Error picking images: $e');
+      _showSnackBar('Failed to pick images');
+    }
+  }
+
+  Future<void> _pickImageFromCamera() async {
+    try {
+      final XFile? image = await _imagePicker.pickImage(source: ImageSource.camera);
+
+      if (image != null) {
+        setState(() {
+          _uploadedImages.add(File(image.path));
+        });
+        _showSnackBar('Image added from camera');
+      }
+    } catch (e) {
+      debugPrint('Error taking photo: $e');
+      _showSnackBar('Failed to take photo');
+    }
+  }
+
+  void _removeImage(int index) {
+    setState(() {
+      _uploadedImages.removeAt(index);
+    });
+    _showSnackBar('Image removed');
+  }
+
+  void _showImagePickerOptions() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Add Images',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 20),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.photo_library, color: Colors.white),
+              ),
+              title: const Text('Choose from Gallery'),
+              subtitle: const Text('Select multiple images'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickImages();
+              },
+            ),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF8B5CF6), Color(0xFFEC4899)],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.camera_alt, color: Colors.white),
+              ),
+              title: const Text('Take Photo'),
+              subtitle: const Text('Use camera'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickImageFromCamera();
+              },
+            ),
+            const SizedBox(height: 10),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _publishArticle() async {
     if (_titleController.text.trim().isEmpty) {
       _showSnackBar('Please enter a title');
       return;
     }
 
-    if (_bodyController.text.trim().isEmpty) {
+    final plainText = _quillController.document.toPlainText().trim();
+    if (plainText.isEmpty) {
       _showSnackBar('Please write your story');
       return;
     }
@@ -200,11 +339,18 @@ class _WriteArticlePageState extends State<WriteArticlePage> {
 
   Future<void> _saveDraft() async {
     try {
+      // Get Quill document as JSON
+      final contentJson = jsonEncode(_quillController.document.toDelta().toJson());
+
+      // Get image paths
+      final imagePaths = _uploadedImages.map((img) => img.path).toList();
+
       // Create draft data object
       final draftData = {
         'title': _titleController.text,
-        'body': _bodyController.text,
+        'content': contentJson,
         'tags': _tags,
+        'imagePaths': imagePaths,
         'savedAt': DateTime.now().toIso8601String(),
       };
 
@@ -362,355 +508,549 @@ class _WriteArticlePageState extends State<WriteArticlePage> {
           const SizedBox(width: 8),
         ],
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Title Section with gradient accent
-            Container(
-              margin: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.purple.shade100.withOpacity(0.3),
-                    blurRadius: 15,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  // Gradient accent bar
-                  Container(
-                    height: 4,
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Color(0xFF6366F1), Color(0xFFEC4899)],
-                      ),
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(20),
-                        topRight: Radius.circular(20),
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
-                                ),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(
-                                Icons.title,
-                                color: Colors.white,
-                                size: 20,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Text(
-                              'Article Title',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.grey[700],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: _titleController,
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            height: 1.3,
-                            color: Colors.black87,
-                          ),
-                          decoration: InputDecoration(
-                            hintText: 'Enter your article title here...',
-                            hintStyle: TextStyle(
-                              color: Colors.grey[400],
-                              fontWeight: FontWeight.normal,
-                            ),
-                            border: InputBorder.none,
-                          ),
-                          maxLines: null,
-                          textCapitalization: TextCapitalization.sentences,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
+      body: Column(
+        children: [
+          // Toolbar
+          _buildToolbar(),
 
-            // Tags Section
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.purple.shade100.withOpacity(0.3),
-                    blurRadius: 15,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
-              ),
+          // Content
+          Expanded(
+            child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF8B5CF6), Color(0xFFEC4899)],
-                          ),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(
-                          Icons.tag,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        'Tags',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey[700],
-                        ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        '${_tags.length}/5',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[500],
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  if (_tags.isNotEmpty) ...[
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: _tags.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final tag = entry.value;
-                        final gradients = [
-                          [const Color(0xFF6366F1), const Color(0xFF8B5CF6)],
-                          [const Color(0xFF8B5CF6), const Color(0xFFEC4899)],
-                          [const Color(0xFF3B82F6), const Color(0xFF06B6D4)],
-                          [const Color(0xFFEC4899), const Color(0xFFF59E0B)],
-                          [const Color(0xFF06B6D4), const Color(0xFF10B981)],
-                        ];
-                        final gradient = gradients[index % gradients.length];
+                  // Title Section
+                  _buildTitleSection(),
 
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(colors: gradient),
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: gradient[0].withOpacity(0.3),
-                                blurRadius: 6,
-                                offset: const Offset(0, 3),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                '#$tag',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              GestureDetector(
-                                onTap: () => _removeTag(tag),
-                                child: Container(
-                                  padding: const EdgeInsets.all(2),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.3),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.close,
-                                    size: 14,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _tagController,
-                          decoration: InputDecoration(
-                            hintText: 'Add a tag...',
-                            hintStyle: TextStyle(color: Colors.grey[400]),
-                            filled: true,
-                            fillColor: Colors.grey[50],
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
-                            ),
-                          ),
-                          onSubmitted: (_) => _addTag(),
-                          enabled: _tags.length < 5,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        decoration: BoxDecoration(
-                          gradient: _tags.length < 5
-                              ? const LinearGradient(
-                                  colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
-                                )
-                              : null,
-                          color: _tags.length >= 5 ? Colors.grey[300] : null,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: IconButton(
-                          onPressed: _tags.length < 5 ? _addTag : null,
-                          icon: const Icon(Icons.add, color: Colors.white),
-                        ),
-                      ),
-                    ],
-                  ),
+                  // Tags Section
+                  _buildTagsSection(),
+
+                  // Images Section
+                  if (_uploadedImages.isNotEmpty) _buildImagesSection(),
+
+                  // Editor Section
+                  _buildEditorSection(),
+
+                  const SizedBox(height: 100),
                 ],
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
 
-            // Body Section
-            Container(
-              margin: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.purple.shade100.withOpacity(0.3),
-                    blurRadius: 15,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
+  Widget _buildToolbar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.shade200,
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            quill.QuillToolbar.simple(
+              configurations: quill.QuillSimpleToolbarConfigurations(
+                controller: _quillController,
+                sharedConfigurations: const quill.QuillSharedConfigurations(),
+                showAlignmentButtons: false,
+                showDirection: false,
+                showDividers: false,
+                showFontFamily: false,
+                showFontSize: false,
+                showSearchButton: false,
+                showSubscript: false,
+                showSuperscript: false,
+                showInlineCode: false,
+                showCodeBlock: false,
+                showIndent: false,
+                showHeaderStyle: true,
+                showListBullets: true,
+                showListNumbers: true,
+                showQuote: true,
+                showLink: true,
+                multiRowsDisplay: false,
               ),
-              child: Column(
-                children: [
-                  // Gradient accent bar
-                  Container(
-                    height: 4,
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Color(0xFFEC4899), Color(0xFFF59E0B)],
+            ),
+            Container(
+              height: 40,
+              width: 1,
+              color: Colors.grey[300],
+              margin: const EdgeInsets.symmetric(horizontal: 8),
+            ),
+            IconButton(
+              icon: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.image, color: Colors.white, size: 18),
+              ),
+              onPressed: _showImagePickerOptions,
+              tooltip: 'Add Images',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTitleSection() {
+    return Container(
+      margin: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.purple.shade100.withOpacity(0.3),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Gradient accent bar
+          Container(
+            height: 4,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF6366F1), Color(0xFFEC4899)],
+              ),
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(20),
+                topRight: Radius.circular(20),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                        ),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(20),
-                        topRight: Radius.circular(20),
+                      child: const Icon(
+                        Icons.title,
+                        color: Colors.white,
+                        size: 20,
                       ),
                     ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Article Title',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _titleController,
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    height: 1.3,
+                    color: Colors.black87,
                   ),
-                  Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [Color(0xFFEC4899), Color(0xFFF59E0B)],
-                                ),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(
-                                Icons.edit_note,
-                                color: Colors.white,
-                                size: 20,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Text(
-                              'Content',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.grey[700],
-                              ),
+                  decoration: InputDecoration(
+                    hintText: 'Enter your article title here...',
+                    hintStyle: TextStyle(
+                      color: Colors.grey[400],
+                      fontWeight: FontWeight.normal,
+                    ),
+                    border: InputBorder.none,
+                  ),
+                  maxLines: null,
+                  textCapitalization: TextCapitalization.sentences,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTagsSection() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.purple.shade100.withOpacity(0.3),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF8B5CF6), Color(0xFFEC4899)],
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.tag,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Tags',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey[700],
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${_tags.length}/5',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[500],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (_tags.isNotEmpty) ...[
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _tags.asMap().entries.map((entry) {
+                final index = entry.key;
+                final tag = entry.value;
+                final gradients = [
+                  [const Color(0xFF6366F1), const Color(0xFF8B5CF6)],
+                  [const Color(0xFF8B5CF6), const Color(0xFFEC4899)],
+                  [const Color(0xFF3B82F6), const Color(0xFF06B6D4)],
+                  [const Color(0xFFEC4899), const Color(0xFFF59E0B)],
+                  [const Color(0xFF06B6D4), const Color(0xFF10B981)],
+                ];
+                final gradient = gradients[index % gradients.length];
+
+                return Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(colors: gradient),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: gradient[0].withOpacity(0.3),
+                        blurRadius: 6,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '#$tag',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      GestureDetector(
+                        onTap: () => _removeTag(tag),
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.3),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.close,
+                            size: 14,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+          ],
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _tagController,
+                  decoration: InputDecoration(
+                    hintText: 'Add a tag...',
+                    hintStyle: TextStyle(color: Colors.grey[400]),
+                    filled: true,
+                    fillColor: Colors.grey[50],
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                  ),
+                  onSubmitted: (_) => _addTag(),
+                  enabled: _tags.length < 5,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                decoration: BoxDecoration(
+                  gradient: _tags.length < 5
+                      ? const LinearGradient(
+                          colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                        )
+                      : null,
+                  color: _tags.length >= 5 ? Colors.grey[300] : null,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: IconButton(
+                  onPressed: _tags.length < 5 ? _addTag : null,
+                  icon: const Icon(Icons.add, color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildImagesSection() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.purple.shade100.withOpacity(0.3),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF3B82F6), Color(0xFF06B6D4)],
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.image,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Images',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey[700],
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${_uploadedImages.length} image(s)',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[500],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+            ),
+            itemCount: _uploadedImages.length,
+            itemBuilder: (context, index) {
+              return Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.file(
+                      _uploadedImages[index],
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      height: double.infinity,
+                    ),
+                  ),
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: GestureDetector(
+                      onTap: () => _removeImage(index),
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 4,
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: _bodyController,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            height: 1.6,
-                            color: Colors.black87,
-                          ),
-                          decoration: InputDecoration(
-                            hintText: 'Tell your story...\n\nShare your thoughts, experiences, and insights with the world.',
-                            hintStyle: TextStyle(
-                              color: Colors.grey[400],
-                              fontSize: 16,
-                            ),
-                            border: InputBorder.none,
-                          ),
-                          maxLines: null,
-                          minLines: 15,
-                          textCapitalization: TextCapitalization.sentences,
+                        child: const Icon(
+                          Icons.close,
+                          size: 16,
+                          color: Colors.white,
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEditorSection() {
+    return Container(
+      margin: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.purple.shade100.withOpacity(0.3),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Gradient accent bar
+          Container(
+            height: 4,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFFEC4899), Color(0xFFF59E0B)],
+              ),
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(20),
+                topRight: Radius.circular(20),
               ),
             ),
-
-            const SizedBox(height: 100),
-          ],
-        ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFEC4899), Color(0xFFF59E0B)],
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.edit_note,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Content',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  constraints: const BoxConstraints(minHeight: 300),
+                  child: quill.QuillEditor.basic(
+                    configurations: quill.QuillEditorConfigurations(
+                      controller: _quillController,
+                      readOnly: false,
+                      placeholder: 'Tell your story...\n\nUse the toolbar above to format your text, add links, lists, and more.',
+                      padding: EdgeInsets.zero,
+                      sharedConfigurations: const quill.QuillSharedConfigurations(),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
