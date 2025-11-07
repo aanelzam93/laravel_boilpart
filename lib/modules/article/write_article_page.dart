@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../auth/auth_controller.dart';
 
 class WriteArticlePage extends StatefulWidget {
@@ -17,6 +19,9 @@ class _WriteArticlePageState extends State<WriteArticlePage> {
   final TextEditingController _tagController = TextEditingController();
   final List<String> _tags = [];
   bool _isPublishing = false;
+  bool _isDraftLoaded = false;
+
+  static const String _draftKey = 'article_draft';
 
   @override
   void initState() {
@@ -24,6 +29,8 @@ class _WriteArticlePageState extends State<WriteArticlePage> {
     _checkAuth();
     if (widget.articleId != null) {
       _loadArticle();
+    } else {
+      _loadDraft();
     }
   }
 
@@ -98,6 +105,47 @@ class _WriteArticlePageState extends State<WriteArticlePage> {
     // For now, just placeholder
   }
 
+  Future<void> _loadDraft() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final draftJson = prefs.getString(_draftKey);
+
+      if (draftJson != null && draftJson.isNotEmpty) {
+        final draftData = jsonDecode(draftJson) as Map<String, dynamic>;
+
+        setState(() {
+          _titleController.text = draftData['title'] ?? '';
+          _bodyController.text = draftData['body'] ?? '';
+          _tags.clear();
+          if (draftData['tags'] != null) {
+            _tags.addAll((draftData['tags'] as List).cast<String>());
+          }
+          _isDraftLoaded = true;
+        });
+
+        // Show snackbar to inform user
+        if (mounted) {
+          _showSnackBar('Draft loaded');
+        }
+      }
+    } catch (e) {
+      // Silently fail if there's an error loading draft
+      debugPrint('Error loading draft: $e');
+    }
+  }
+
+  Future<void> _clearDraft() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_draftKey);
+      setState(() {
+        _isDraftLoaded = false;
+      });
+    } catch (e) {
+      debugPrint('Error clearing draft: $e');
+    }
+  }
+
   @override
   void dispose() {
     _titleController.dispose();
@@ -141,14 +189,39 @@ class _WriteArticlePageState extends State<WriteArticlePage> {
 
     if (mounted) {
       setState(() => _isPublishing = false);
+
+      // Clear draft after successful publish
+      await _clearDraft();
+
       _showSnackBar('Article published successfully!');
       Modular.to.pop();
     }
   }
 
   Future<void> _saveDraft() async {
-    // TODO: Implement save draft
-    _showSnackBar('Draft saved');
+    try {
+      // Create draft data object
+      final draftData = {
+        'title': _titleController.text,
+        'body': _bodyController.text,
+        'tags': _tags,
+        'savedAt': DateTime.now().toIso8601String(),
+      };
+
+      // Save to SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      final draftJson = jsonEncode(draftData);
+      await prefs.setString(_draftKey, draftJson);
+
+      setState(() {
+        _isDraftLoaded = true;
+      });
+
+      _showSnackBar('Draft saved successfully!');
+    } catch (e) {
+      debugPrint('Error saving draft: $e');
+      _showSnackBar('Failed to save draft');
+    }
   }
 
   void _showSnackBar(String message) {
@@ -192,13 +265,50 @@ class _WriteArticlePageState extends State<WriteArticlePage> {
           ),
           onPressed: () => Modular.to.pop(),
         ),
-        title: const Text(
-          'Write Story',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
+        title: Row(
+          children: [
+            const Text(
+              'Write Story',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            if (_isDraftLoaded) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.4),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.bookmark,
+                      color: Colors.white.withOpacity(0.9),
+                      size: 14,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Draft',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.9),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
         ),
         actions: [
           TextButton.icon(
