@@ -14,7 +14,7 @@ class ProfilePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final authController = context.read<AuthController>();
+    final authController = Modular.get<AuthController>();
     final user = authController.getCurrentUser() ?? UserModel.dummy();
 
     return Scaffold(
